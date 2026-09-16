@@ -85,6 +85,7 @@ bool Config::loadConfig(const std::string& filename)
         maxSpeedMultiplier = 0.1f;
 
         predictionInterval = 0.01f;
+        aim_latency_compensation = false;
         prediction_futurePositions = 20;
         draw_futurePositions = true;
         kalman_enabled = true;
@@ -105,6 +106,17 @@ bool Config::loadConfig(const std::string& filename)
 
         easynorecoil = false;
         easynorecoilstrength = 0.0f;
+
+        // Jitter aim (recoil smoothing)
+        jitter_aim = false;
+        jitter_aim_sens = 1.0f;
+        jitter_aim_ads_mult = 1.0f;
+        jitter_aim_margin = 2.0f;
+        jitter_aim_freq = 15.0f;
+        jitter_aim_shape = 0;
+        jitter_aim_noise = 40.0f;
+        jitter_aim_adaptive = false;
+        jitter_aim_game_fps = 144.0f;
         input_method = "WIN32";
 
         // Wind mouse
@@ -412,6 +424,7 @@ bool Config::loadConfig(const std::string& filename)
     maxSpeedMultiplier = (float)get_double("maxSpeedMultiplier", 0.1);
 
     predictionInterval = (float)get_double("predictionInterval", 0.01);
+    aim_latency_compensation = get_bool("aim_latency_compensation", false);
     prediction_futurePositions = get_long("prediction_futurePositions", 20);
     draw_futurePositions = get_bool("draw_futurePositions", true);
     kalman_enabled = get_bool("kalman_enabled", true);
@@ -432,6 +445,16 @@ bool Config::loadConfig(const std::string& filename)
 
     easynorecoil = get_bool("easynorecoil", false);
     easynorecoilstrength = (float)get_double("easynorecoilstrength", 0.0);
+
+    jitter_aim = get_bool("jitter_aim", false);
+    jitter_aim_sens = (float)get_double("jitter_aim_sens", 1.0);
+    jitter_aim_ads_mult = (float)get_double("jitter_aim_ads_mult", 1.0);
+    jitter_aim_margin = (float)get_double("jitter_aim_margin", 2.0);
+    jitter_aim_freq = (float)get_double("jitter_aim_freq", 15.0);
+    jitter_aim_shape = (int)get_long("jitter_aim_shape", 0);
+    jitter_aim_noise = (float)get_double("jitter_aim_noise", 40.0);
+    jitter_aim_adaptive = get_bool("jitter_aim_adaptive", false);
+    jitter_aim_game_fps = (float)get_double("jitter_aim_game_fps", 144.0);
     input_method = get_string("input_method", "WIN32");
 
     // Wind mouse
@@ -702,6 +725,7 @@ bool Config::saveConfig(const std::string& filename)
 
         << std::fixed << std::setprecision(2)
         << "predictionInterval = " << predictionInterval << "\n"
+        << "aim_latency_compensation = " << (aim_latency_compensation ? "true" : "false") << "\n"
         << "prediction_futurePositions = " << prediction_futurePositions << "\n"
         << "draw_futurePositions = " << (draw_futurePositions ? "true" : "false") << "\n"
         << "kalman_enabled = " << (kalman_enabled ? "true" : "false") << "\n"
@@ -726,6 +750,18 @@ bool Config::saveConfig(const std::string& filename)
         << "easynorecoil = " << (easynorecoil ? "true" : "false") << "\n"
         << std::fixed << std::setprecision(1)
         << "easynorecoilstrength = " << easynorecoilstrength << "\n"
+
+        << "jitter_aim = " << (jitter_aim ? "true" : "false") << "\n"
+        << std::fixed << std::setprecision(2)
+        << "jitter_aim_sens = " << jitter_aim_sens << "\n"
+        << "jitter_aim_ads_mult = " << jitter_aim_ads_mult << "\n"
+        << "jitter_aim_margin = " << jitter_aim_margin << "\n"
+        << "jitter_aim_freq = " << jitter_aim_freq << "\n"
+        << "jitter_aim_shape = " << jitter_aim_shape << "\n"
+        << "jitter_aim_noise = " << jitter_aim_noise << "\n"
+        << "jitter_aim_adaptive = " << (jitter_aim_adaptive ? "true" : "false") << "\n"
+        << "jitter_aim_game_fps = " << jitter_aim_game_fps << "\n"
+        << std::fixed << std::setprecision(1)
 
         << "# WIN32, GHUB, RAZER, ARDUINO, RP2350, TEENSY41, TEENSY41_HID, KMBOX_NET, KMBOX_A, MAKCU\n"
         << "input_method = " << input_method << "\n\n";

@@ -10,8 +10,13 @@
 
 #include "capture.h"
 #include "mouse.h"
+#include "jitter_aim.h"
 #include "sunone_aimbot_2.h"
 #include "runtime/thread_loops.h"
+
+// Pause flag (F3). Every feature that emits input must honor it, otherwise the
+// user can pause the aimbot and still get injected movement.
+extern std::atomic<bool> detectionPaused;
 
 namespace
 {
@@ -74,6 +79,63 @@ void handleEasyNoRecoil(MouseThread& mouseThread)
     {
         mouseThread.moveRelative(0, recoil_compensation);
     }
+}
+
+// Jitter aim — see features/jitter_aim.md. Oscillates the crosshair just enough
+// to keep the camera above Apex's recoil-smoothing threshold (~3.74 deg/s)
+// while firing. Only runs while the aim key is held, because MAKCU's injected
+// frame replaces the physical delta for that report (stock firmware), so the
+// user's own hand input would otherwise be overwritten during hip-fire.
+void handleJitterAim(MouseThread& mouseThread)
+{
+    static JitterAim jitter;
+    static std::chrono::steady_clock::time_point lastTick{};
+
+    const auto now = std::chrono::steady_clock::now();
+    double dt = 0.001;
+    if (lastTick.time_since_epoch().count() != 0)
+    {
+        dt = std::chrono::duration<double>(now - lastTick).count();
+    }
+    lastTick = now;
+    dt = std::clamp(dt, 0.0002, 0.010);
+
+    JitterAimSettings settings;
+    {
+        std::lock_guard<std::mutex> cfgLock(configMutex);
+        settings.enabled   = config.jitter_aim;
+        settings.sens      = config.jitter_aim_sens;
+        settings.ads_mult  = config.jitter_aim_ads_mult;
+        settings.margin    = config.jitter_aim_margin;
+        settings.freq_hz   = config.jitter_aim_freq;
+        settings.shape     = config.jitter_aim_shape;
+        settings.noise_pct = config.jitter_aim_noise;
+        settings.adaptive  = config.jitter_aim_adaptive;
+        settings.game_fps  = config.jitter_aim_game_fps;
+    }
+
+    if (!settings.enabled || detectionPaused.load() || !shooting.load() || !aiming.load())
+    {
+        jitter.reset();
+        g_jitterVelocity.store(0.0);
+        g_jitterAmplitude.store(0.0);
+        g_jitterFrequency.store(0.0);
+        return;
+    }
+
+    int dx = 0;
+    int dy = 0;
+    jitter.step(settings, dt, mouseThread.getLastAimMoveCounts(), dx, dy);
+    if (dx != 0 || dy != 0)
+    {
+        // Quiet move: the injected shake must not be recorded as camera movement,
+        // otherwise the aim compensates for its own jitter (feedback loop).
+        mouseThread.moveRelativeQuiet(dx, dy);
+    }
+
+    g_jitterVelocity.store(jitter.lastVelocityCountsPerSec());
+    g_jitterAmplitude.store(jitter.lastAmplitude());
+    g_jitterFrequency.store(jitter.lastFrequencyHz());
 }
 
 void mouseThreadFunction(MouseThread& mouseThread)
@@ -347,6 +409,7 @@ void mouseThreadFunction(MouseThread& mouseThread)
         }
 
         handleEasyNoRecoil(mouseThread);
+        handleJitterAim(mouseThread);
 
         mouseThread.checkAndResetPredictions();
     }

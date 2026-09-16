@@ -44,6 +44,7 @@ public:
     float predictionInterval;
     int prediction_futurePositions;
     bool draw_futurePositions;
+    bool aim_latency_compensation;   // feed our own sent mouse deltas back into the aim target (experimental)
     bool kalman_enabled;
     float kalman_process_noise_position;
     float kalman_process_noise_velocity;
@@ -62,6 +63,17 @@ public:
 
     bool easynorecoil;
     float easynorecoilstrength;
+
+    // Jitter aim (recoil smoothing exploit)
+    bool jitter_aim;
+    float jitter_aim_sens;
+    float jitter_aim_ads_mult;
+    float jitter_aim_margin;
+    float jitter_aim_freq;      // shake speed, loops per second
+    int jitter_aim_shape;       // 0 = square orbit, 1 = circle, 2 = zigzag
+    float jitter_aim_noise;     // humanization amount, percent
+    bool jitter_aim_adaptive;
+    float jitter_aim_game_fps;
     std::string input_method; // "WIN32", "GHUB", "RAZER", "ARDUINO", "RP2350", "TEENSY41", "TEENSY41_HID", "KMBOX_NET", "KMBOX_A", "MAKCU"
 
     // Wind mouse

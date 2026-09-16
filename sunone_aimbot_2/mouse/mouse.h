@@ -46,10 +46,11 @@ private:
     std::chrono::steady_clock::time_point last_target_time;
     std::atomic<bool> target_detected{ false };
     std::atomic<bool> mouse_pressed{ false };
+    std::atomic<double> last_aim_move_counts{ 0.0 };
 
     IMouseInput* mouseInput;
 
-    void sendMovementToDriver(int dx, int dy);
+    void sendMovementToDriver(int dx, int dy, bool recordCompensation = true);
 
     struct Move { int dx; int dy; };
 
@@ -156,6 +157,9 @@ public:
         double pivotY,
         std::chrono::steady_clock::time_point observationTime = {});
     void moveRelative(int dx, int dy);
+    // Same, but not recorded as camera movement for the aim latency compensation.
+    // Used by injected effects (jitter aim) so they are not fed back into the target.
+    void moveRelativeQuiet(int dx, int dy);
     void clearQueuedMoves();
     std::pair<double, double> predict_target_position(
         double target_x,
@@ -177,6 +181,12 @@ public:
     std::vector<std::pair<double, double>> getWindDebugTrail();
     std::pair<double, double> getMotionCompensationSince(
         std::chrono::steady_clock::time_point since) const;
+
+    // Magnitude (counts) of the movement the aim path applied on the last iteration.
+    double getLastAimMoveCounts() const
+    {
+        return last_aim_move_counts.load(std::memory_order_relaxed);
+    }
 
     void setMouseInput(IMouseInput* newMouseInput);
 

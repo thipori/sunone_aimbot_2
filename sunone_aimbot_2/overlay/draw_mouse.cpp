@@ -10,10 +10,12 @@
 #include <imgui_internal.h>
 
 #include "sunone_aimbot_2.h"
+#include "jitter_aim.h"
 #include "overlay/config_dirty.h"
 #include "overlay/ui_sections.h"
 #include "include/other_tools.h"
 #include "kmbox_net/picture.h"
+#include "runtime/thread_loops.h"
 
 std::string ghub_version = get_ghub_version();
 
@@ -90,6 +92,12 @@ static void draw_mouse_page(MouseSettingsPage page)
         {
             OverlayUI::TextRow("Prediction is disabled.", IM_COL32(255, 108, 108, 255));
         }
+
+        if (OverlayUI::CheckboxRow("Compensate Aim Latency", &config.aim_latency_compensation))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("Experimental: shifts the target by our own sent mouse deltas. Can cause oscillation.");
 
         const bool predictionEnabled = (config.predictionInterval > 0.0f);
         if (!predictionEnabled)
@@ -344,6 +352,105 @@ static void draw_mouse_page(MouseSettingsPage page)
         {
             ImGui::EndDisabled();
             ImGui::TextDisabled("Enable Easy No Recoil to edit settings.");
+        }
+
+        OverlayUI::EndSection();
+    }
+
+    if (shouldDrawMousePage(page, MouseSettingsPage::Assist) &&
+        OverlayUI::BeginSection("Jitter Aim", "mouse_section_jitter_aim"))
+    {
+        if (OverlayUI::CheckboxRow("Jitter Aim", &config.jitter_aim))
+        {
+            OverlayConfig_MarkDirty();
+        }
+
+        if (!config.jitter_aim)
+        {
+            ImGui::BeginDisabled();
+        }
+
+        if (OverlayUI::SliderFloatRow("In-game Sensitivity", &config.jitter_aim_sens, 0.1f, 10.0f, "%.2f"))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        if (OverlayUI::SliderFloatRow("ADS Multiplier (scoped)", &config.jitter_aim_ads_mult, 0.1f, 1.5f, "%.2f"))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        if (OverlayUI::SliderFloatRow("Strength (x minimum speed)", &config.jitter_aim_margin, 1.0f, 4.0f, "%.1f"))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("1.0 = bare minimum (can dip below), 2.0 = default, 3.0 = strong");
+
+        // Speed and width are linked: the camera speed is fixed by Strength and
+        // Game FPS, so moving one slider moves the other.
+        JitterAimSettings jitterSettings;
+        jitterSettings.sens     = config.jitter_aim_sens;
+        jitterSettings.ads_mult = config.jitter_aim_ads_mult;
+        jitterSettings.margin   = config.jitter_aim_margin;
+        jitterSettings.shape    = config.jitter_aim_shape;
+        jitterSettings.game_fps = config.jitter_aim_game_fps;
+
+        if (OverlayUI::SliderFloatRow("Shake speed (Hz)", &config.jitter_aim_freq, 8.0f, 64.0f, "%.1f"))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("Loops per second. Linked to width: higher speed = smaller width.");
+
+        float shakeWidth = static_cast<float>(JitterAimSizeForFreq(jitterSettings, config.jitter_aim_freq));
+        if (OverlayUI::SliderFloatRow("Shake width (counts)", &shakeWidth, 0.5f, 24.0f, "%.1f"))
+        {
+            config.jitter_aim_freq = static_cast<float>(JitterAimFreqForSize(jitterSettings, shakeWidth));
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("How far the crosshair moves. Linked to speed: wider = slower loops.");
+
+        const char* jitterShapes[] = { "Square orbit (down/right/up/left)", "Circle", "Zigzag" };
+        if (OverlayUI::ComboRow("Shake shape", &config.jitter_aim_shape, jitterShapes, 3))
+        {
+            OverlayConfig_MarkDirty();
+        }
+
+        if (OverlayUI::SliderFloatRow("Randomness (%)", &config.jitter_aim_noise, 0.0f, 100.0f, "%.0f"))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("0 = perfectly regular (machine-like), 40 = default.");
+
+        if (OverlayUI::SliderFloatRow("Game FPS", &config.jitter_aim_game_fps, 30.0f, 360.0f, "%.0f"))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("Your fps cap. Sets the minimum movement per frame.");
+
+        if (OverlayUI::CheckboxRow("Skip while tracking (adaptive)", &config.jitter_aim_adaptive))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("No jitter when the aim is already moving fast enough on its own.");
+
+        const double jitterDegPerCount = 0.022 * static_cast<double>(std::max(0.01f, config.jitter_aim_sens)) *
+            static_cast<double>(std::max(0.01f, config.jitter_aim_ads_mult));
+        const double jitterTarget = 3.74 * static_cast<double>(std::max(1.0f, config.jitter_aim_margin)) / jitterDegPerCount;
+        const double jitterVelocity = g_jitterVelocity.load();
+        const double jitterAmplitude = g_jitterAmplitude.load();
+        const double jitterFrequency = g_jitterFrequency.load();
+
+        ImGui::Text("Target %.0f counts/s | current %.0f | size %.2f counts | %.1f Hz | %.2f deg/s",
+            jitterTarget, jitterVelocity, jitterAmplitude, jitterFrequency, jitterVelocity * jitterDegPerCount);
+
+        if (config.jitter_aim && jitterVelocity + 0.5 < jitterTarget)
+        {
+            ImGui::TextColored(ImVec4(1.0f, 0.74f, 0.42f, 1.0f),
+                "Below target: adaptive idle, not firing, or aim key not held.");
+        }
+
+        if (!config.jitter_aim)
+        {
+            ImGui::EndDisabled();
+            ImGui::TextDisabled("Enable Jitter Aim to edit settings.");
         }
 
         OverlayUI::EndSection();

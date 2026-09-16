@@ -532,7 +532,7 @@ std::pair<double, double> MouseThread::predict_target_position(
     return { predictedX, predictedY };
 }
 
-void MouseThread::sendMovementToDriver(int dx, int dy)
+void MouseThread::sendMovementToDriver(int dx, int dy, bool recordCompensation)
 {
     if (dx == 0 && dy == 0)
     {
@@ -553,12 +553,20 @@ void MouseThread::sendMovementToDriver(int dx, int dy)
         }
     }
 
-    recordMotionCompensationStep(dx, dy);
+    if (recordCompensation)
+    {
+        recordMotionCompensationStep(dx, dy);
+    }
 }
 
 void MouseThread::moveRelative(int dx, int dy)
 {
     sendMovementToDriver(dx, dy);
+}
+
+void MouseThread::moveRelativeQuiet(int dx, int dy)
+{
+    sendMovementToDriver(dx, dy, false);
 }
 
 std::pair<double, double> MouseThread::calc_movement(double tx, double ty)
@@ -653,17 +661,36 @@ void MouseThread::moveMousePivot(
     std::chrono::steady_clock::time_point observationTime)
 {
     std::lock_guard lg(input_method_mutex);
+
+    // Optional (and off by default): shift the measured target by the mouse deltas
+    // we sent since the frame was captured. This is a closed loop over our own
+    // output -- the game applies those deltas with latency, so the correction can
+    // overshoot and make the aim oscillate around the target. 4.4.5 had no such
+    // feedback path at all.
     if (observationTime.time_since_epoch().count() != 0)
     {
-        auto cameraDelta = getMotionCompensationSince(observationTime);
-        pivotX -= cameraDelta.first;
-        pivotY -= cameraDelta.second;
+        bool compensate = false;
+        {
+            std::lock_guard<std::mutex> lock(configMutex);
+            compensate = config.aim_latency_compensation;
+        }
+
+        if (compensate)
+        {
+            auto cameraDelta = getMotionCompensationSince(observationTime);
+            pivotX -= cameraDelta.first;
+            pivotY -= cameraDelta.second;
+        }
     }
 
     auto predicted = predict_target_position(pivotX, pivotY, observationTime);
     auto mv = calc_movement(predicted.first, predicted.second);
     int mx = static_cast<int>(mv.first);
     int my = static_cast<int>(mv.second);
+
+    last_aim_move_counts.store(
+        std::hypot(static_cast<double>(mx), static_cast<double>(my)),
+        std::memory_order_relaxed);
 
     if (mx == 0 && my == 0)
     {
