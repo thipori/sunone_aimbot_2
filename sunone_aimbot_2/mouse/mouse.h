@@ -19,10 +19,13 @@
 #include <condition_variable>
 #include <deque>
 #include <random>
+#include <optional>
+#include <cstdint>
 
 #include "AimbotTarget.h"
 #include "MouseInput.h"
 #include "aim_kalman.h"
+#include "config.h"
 
 class MouseThread
 {
@@ -50,9 +53,18 @@ private:
 
     IMouseInput* mouseInput;
 
-    void sendMovementToDriver(int dx, int dy, bool recordCompensation = true);
+    void sendMovementToDriver(int dx, int dy, std::uint64_t detectionGeneration);
+    // Same, but skips the generation check and the motion-compensation recording.
+    // Used by injected effects (jitter aim) so they are not fed back into the aim target.
+    void sendMovementToDriverQuiet(int dx, int dy);
 
-    struct Move { int dx; int dy; };
+    struct Move
+    {
+        int dx;
+        int dy;
+        std::uint64_t detectionGeneration;
+        std::uint64_t queueGeneration;
+    };
 
     std::queue<Move>              moveQueue;
     std::mutex                    queueMtx;
@@ -60,6 +72,11 @@ private:
     const size_t                  queueLimit = 5;
     std::thread                   moveWorker;
     std::atomic<bool>             workerStop{ false };
+    std::mutex                    dispatchMutex;
+    std::uint64_t                 queueGeneration = 0; // protected by queueMtx
+    std::uint64_t                 detectionGeneration = 0; // mouse loop only
+    std::mutex                    pendingConfigMutex;
+    std::optional<Config>         pendingConfig;
 
     std::vector<std::pair<double, double>> futurePositions;
     std::mutex                    futurePositionsMutex;
@@ -141,16 +158,13 @@ public:
     );
     ~MouseThread();
 
-    void updateConfig(
-        int resolution,
-        int fovX,
-        int fovY,
-        double minSpeedMultiplier,
-        double maxSpeedMultiplier,
-        double predictionInterval,
-        bool auto_shoot,
-        float bScope_multiplier
-    );
+    // Caller holds configMutex while copying config. Active state is changed
+    // only by applyPendingConfig() on the mouse loop, never by UI callbacks.
+    void updateConfig(const Config& snapshot);
+    bool applyPendingConfig();
+    void setDetectionGeneration(std::uint64_t generation) { detectionGeneration = generation; }
+    void requestStop();
+    void stop();
 
     void moveMousePivot(
         double pivotX,
