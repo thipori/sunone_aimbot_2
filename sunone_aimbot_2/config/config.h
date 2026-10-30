@@ -34,6 +34,7 @@ public:
     bool auto_aim;
     bool tracker_enabled;
     bool tracker_overlay_table_enabled;
+    bool tracker_predicted_only;   // keep aiming at stale positions through brief occlusions
 
     // Mouse
     int fovX;

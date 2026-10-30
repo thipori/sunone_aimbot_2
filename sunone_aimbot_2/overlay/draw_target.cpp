@@ -119,6 +119,8 @@ void draw_tracker()
     {
         changed |= OverlayUI::CheckboxRow("Enable Tracker", &config.tracker_enabled);
         changed |= OverlayUI::CheckboxRow("Show Target Table", &config.tracker_overlay_table_enabled);
+        changed |= OverlayUI::CheckboxRow("Predicted-Only Moves", &config.tracker_predicted_only);
+        ImGui::TextDisabled("Keep aiming at stale positions through brief occlusions (can cause wobble).");
         ImGui::Text("Mode: Simple Lock");
         ImGui::Text("Runtime: %s", config.tracker_enabled ? "Tracker" : "Nearest Target");
         ImGui::Text("Locked Track ID: %d", lockedTrackId);

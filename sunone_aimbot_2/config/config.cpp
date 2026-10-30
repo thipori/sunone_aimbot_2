@@ -76,6 +76,7 @@ bool Config::loadConfig(const std::string& filename)
         head_y_offset = 0.05f;
         auto_aim = false;
         tracker_enabled = true;
+        tracker_predicted_only = false;
         tracker_overlay_table_enabled = true;
 
         // Mouse
@@ -415,6 +416,7 @@ bool Config::loadConfig(const std::string& filename)
     head_y_offset = (float)get_double("head_y_offset", 0.05);
     auto_aim = get_bool("auto_aim", false);
     tracker_enabled = get_bool("tracker_enabled", true);
+    tracker_predicted_only = get_bool("tracker_predicted_only", false);
     tracker_overlay_table_enabled = get_bool("tracker_overlay_table_enabled", true);
 
     // Mouse
@@ -714,6 +716,7 @@ bool Config::saveConfig(const std::string& filename)
         << "head_y_offset = " << head_y_offset << "\n"
         << "auto_aim = " << (auto_aim ? "true" : "false") << "\n"
         << "tracker_enabled = " << (tracker_enabled ? "true" : "false") << "\n"
+        << "tracker_predicted_only = " << (tracker_predicted_only ? "true" : "false") << "\n"
         << "tracker_overlay_table_enabled = " << (tracker_overlay_table_enabled ? "true" : "false") << "\n\n";
 
     // Mouse
