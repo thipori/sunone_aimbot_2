@@ -87,6 +87,7 @@ bool Config::loadConfig(const std::string& filename)
 
         predictionInterval = 0.01f;
         aim_latency_compensation = false;
+        aim_legacy_prediction = false;
         prediction_futurePositions = 20;
         draw_futurePositions = true;
         kalman_enabled = true;
@@ -427,6 +428,7 @@ bool Config::loadConfig(const std::string& filename)
 
     predictionInterval = (float)get_double("predictionInterval", 0.01);
     aim_latency_compensation = get_bool("aim_latency_compensation", false);
+    aim_legacy_prediction = get_bool("aim_legacy_prediction", false);
     prediction_futurePositions = get_long("prediction_futurePositions", 20);
     draw_futurePositions = get_bool("draw_futurePositions", true);
     kalman_enabled = get_bool("kalman_enabled", true);
@@ -729,6 +731,7 @@ bool Config::saveConfig(const std::string& filename)
         << std::fixed << std::setprecision(2)
         << "predictionInterval = " << predictionInterval << "\n"
         << "aim_latency_compensation = " << (aim_latency_compensation ? "true" : "false") << "\n"
+        << "aim_legacy_prediction = " << (aim_legacy_prediction ? "true" : "false") << "\n"
         << "prediction_futurePositions = " << prediction_futurePositions << "\n"
         << "draw_futurePositions = " << (draw_futurePositions ? "true" : "false") << "\n"
         << "kalman_enabled = " << (kalman_enabled ? "true" : "false") << "\n"

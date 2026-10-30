@@ -99,6 +99,12 @@ static void draw_mouse_page(MouseSettingsPage page)
         }
         ImGui::TextDisabled("Experimental: shifts the target by our own sent mouse deltas. Can cause oscillation.");
 
+        if (OverlayUI::CheckboxRow("Legacy Prediction (4.4.5)", &config.aim_legacy_prediction))
+        {
+            OverlayConfig_MarkDirty();
+        }
+        ImGui::TextDisabled("Reproduce 4.4.5's raw over-lead prediction (no Kalman, huge lead = sticky feel).");
+
         const bool predictionEnabled = (config.predictionInterval > 0.0f);
         if (!predictionEnabled)
         {
