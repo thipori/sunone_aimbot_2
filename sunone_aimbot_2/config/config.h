@@ -34,7 +34,6 @@ public:
     bool auto_aim;
     bool tracker_enabled;
     bool tracker_overlay_table_enabled;
-    bool tracker_predicted_only;   // keep aiming at stale positions through brief occlusions
 
     // Mouse
     int fovX;
@@ -45,8 +44,6 @@ public:
     float predictionInterval;
     int prediction_futurePositions;
     bool draw_futurePositions;
-    bool aim_latency_compensation;   // feed our own sent mouse deltas back into the aim target (experimental)
-    bool aim_legacy_prediction;      // reproduce 4.4.5's raw over-lead prediction (no Kalman, ms-as-seconds lead)
     bool kalman_enabled;
     float kalman_process_noise_position;
     float kalman_process_noise_velocity;

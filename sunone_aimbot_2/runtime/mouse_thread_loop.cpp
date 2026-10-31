@@ -183,7 +183,6 @@ void mouseThreadFunction(MouseThread& mouseThread)
         int detectionResolution = 0;
         bool disableHeadshot = false;
         bool trackerEnabled = true;
-        bool trackerPredictedOnly = false;
         int predictionFuturePositions = 0;
         bool autoShoot = false;
         bool pausedNow = false;
@@ -194,7 +193,6 @@ void mouseThreadFunction(MouseThread& mouseThread)
             detectionResolution = config.detection_resolution;
             disableHeadshot = config.disable_headshot;
             trackerEnabled = config.tracker_enabled;
-            trackerPredictedOnly = config.tracker_predicted_only;
             predictionFuturePositions = config.prediction_futurePositions;
             autoShoot = config.auto_shoot;
         }
@@ -329,7 +327,7 @@ void mouseThreadFunction(MouseThread& mouseThread)
                         );
                         mouseThread.storeFuturePositions(futurePositions);
                     }
-                    else if (trackerPredictedOnly && allowPredictedOnlyMove(
+                    else if (allowPredictedOnlyMove(
                         previousActiveTrackId,
                         hadActiveTarget,
                         lockInfo,

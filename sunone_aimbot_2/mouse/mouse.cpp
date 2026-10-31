@@ -708,65 +708,14 @@ void MouseThread::moveMousePivot(
 {
     std::lock_guard lg(input_method_mutex);
 
-    // Optional (and off by default): shift the measured target by the mouse deltas
-    // we sent since the frame was captured. This is a closed loop over our own
-    // output -- the game applies those deltas with latency, so the correction can
-    // overshoot and make the aim oscillate around the target. 4.4.5 had no such
-    // feedback path at all.
     if (observationTime.time_since_epoch().count() != 0)
     {
-        bool compensate = false;
-        {
-            std::lock_guard<std::mutex> lock(configMutex);
-            compensate = config.aim_latency_compensation;
-        }
-
-        if (compensate)
-        {
-            auto cameraDelta = getMotionCompensationSince(observationTime);
-            pivotX -= cameraDelta.first;
-            pivotY -= cameraDelta.second;
-        }
+        auto cameraDelta = getMotionCompensationSince(observationTime);
+        pivotX -= cameraDelta.first;
+        pivotY -= cameraDelta.second;
     }
 
     auto predicted = predict_target_position(pivotX, pivotY, observationTime);
-
-    // Legacy prediction: reproduce 4.4.5's raw over-lead. Uses the raw
-    // frame-delta velocity and adds the inference delay in milliseconds as if
-    // it were seconds (the original bug). The result is a huge lead that
-    // saturates the speed curve, which is what made 4.4.5 feel "sticky".
-    {
-        bool legacy = false;
-        {
-            std::lock_guard<std::mutex> lock(configMutex);
-            legacy = config.aim_legacy_prediction;
-        }
-
-        if (legacy)
-        {
-            auto current_time = std::chrono::steady_clock::now();
-            double dt = std::chrono::duration<double>(current_time - prev_time).count();
-            if (dt < 1e-8) dt = 1e-8;
-
-            double vx = std::clamp((pivotX - prev_x) / dt, -20000.0, 20000.0);
-            double vy = std::clamp((pivotY - prev_y) / dt, -20000.0, 20000.0);
-
-            prev_time = current_time;
-            prev_x = pivotX;
-            prev_y = pivotY;
-            prev_velocity_x = vx;
-            prev_velocity_y = vy;
-
-            double detectionDelayMs = 50.0; // default 50 ms
-#ifdef USE_CUDA
-            detectionDelayMs = currentDetectionDelaySec() * 1000.0;
-#endif
-            double leadSec = prediction_interval + detectionDelayMs; // ms as seconds
-            predicted.first  = pivotX + vx * leadSec;
-            predicted.second = pivotY + vy * leadSec;
-        }
-    }
-
     auto mv = calc_movement(predicted.first, predicted.second);
     int mx = static_cast<int>(mv.first);
     int my = static_cast<int>(mv.second);
