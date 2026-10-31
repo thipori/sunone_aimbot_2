@@ -198,13 +198,22 @@ cv::Mat WinRTScreenCapture::GetNextFrameCpu()
 
     captureWinrtPollAttemptsTotal.fetch_add(1, std::memory_order_relaxed);
 
-    Direct3D11CaptureFrame lastFrame = framePool.TryGetNextFrame();
+    // Drain the frame pool and keep the newest frame. TryGetNextFrame() pops the
+    // oldest queued frame, so when the session delivers frames faster than the
+    // capture loop polls, every processed frame is stale by the queue depth and
+    // the staleness varies frame to frame. Draining guarantees each poll
+    // processes the freshest available frame.
+    Direct3D11CaptureFrame lastFrame{ nullptr };
+    while (auto tempFrame = framePool.TryGetNextFrame())
+    {
+        lastFrame = tempFrame;
+        captureWinrtFramesDrainedTotal.fetch_add(1, std::memory_order_relaxed);
+    }
     if (!lastFrame)
     {
         captureWinrtEmptyPollsTotal.fetch_add(1, std::memory_order_relaxed);
         return cv::Mat();
     }
-    captureWinrtFramesDrainedTotal.fetch_add(1, std::memory_order_relaxed);
 
     const auto contentSize = lastFrame.ContentSize();
     if (contentSize.Width > 0 && contentSize.Height > 0 &&
